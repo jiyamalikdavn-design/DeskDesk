@@ -68,7 +68,7 @@
       if (node.nodeType === Node.ELEMENT_NODE) renameDeskDesk(node);
     }))).observe(document.body, {childList:true, subtree:true});
     const maintenanceStyle = document.createElement('style');
-    maintenanceStyle.textContent = '.status-progress{background:#eef0f6;color:#60708f}.chart-grid{align-items:stretch}.chart-grid>.panel{min-width:0}.linechart{display:block}';
+    maintenanceStyle.textContent = '.status-progress{background:#eef0f6;color:#60708f}.chart-grid{align-items:stretch}.chart-grid>.panel{min-width:0}.linechart{display:block}.rule label{min-width:0}.rule input{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 8px;color:var(--ink);margin-top:3px;background:#fff}.rule input:focus{outline:0;border-color:var(--violet);box-shadow:0 0 0 3px #6952d917}';
     document.head.appendChild(maintenanceStyle);
 
     function cls(value) {
@@ -132,6 +132,69 @@
         `<div class="metrics">${metrics.map(item => metric(...item)).join('')}</div>` +
         `<div class="chart-grid"><section class="panel"><div class="panel-head"><div><h3>Weekly ticket flow</h3><span class="muted">Resolved bars reflect live ticket status</span></div><span class="muted">Live</span></div>${liveBars(stats)}<div class="legend"><span><i></i>Tickets received</span><span><i class="alt"></i>Tickets resolved</span></div></section><section class="panel"><div class="panel-head"><h3>SLA performance</h3><span class="muted">Live</span></div><div class="sla-ring" style="background:conic-gradient(var(--violet) 0 ${stats.sla}%,#eeeafa ${stats.sla}% 100%)"><div class="ring-label"><b>${stats.sla}%</b>on target</div></div><div class="mini-row"><span>Target</span><b>95.0%</b></div><div class="mini-row"><span>Current</span><b style="color:${stats.sla >= 95 ? 'var(--mint)' : 'var(--red)'}">${stats.sla}%</b></div></section></div>` +
         `<div class="grid" style="margin-top:18px"><section class="panel"><div class="panel-head"><h3>Ticket status by day</h3><span class="muted">Live status distribution</span></div>${liveStatusChart(stats)}<div class="legend"><span><i style="background:var(--mint)"></i>Resolved</span><span><i style="background:var(--gold)"></i>In progress</span><span><i style="background:var(--red)"></i>Breached</span></div></section><section class="panel"><h3>What needs attention</h3><div class="mini-list"><div class="mini-row"><span>High-risk tickets due soon</span><b>${tickets.filter(ticket => ticket.priority === 'High risk' && ticket.status !== 'Solved').length}</b></div><div class="mini-row"><span>Tickets in progress</span><b>${stats.active}</b></div><div class="mini-row"><span>Tickets breached</span><b style="color:${stats.breached ? 'var(--red)' : 'var(--mint)'}">${stats.breached}</b></div></div></section></div>`;
+    }
+
+    const slaRules = [
+      { priority: 'High risk', response: '15 min', resolution: '4 hours' },
+      { priority: 'Medium risk', response: '1 hour', resolution: '12 hours' },
+      { priority: 'Low risk', response: '4 hours', resolution: '48 hours' }
+    ];
+    const agentRules = [
+      { name: 'Asha Shah', response: '15 min', resolution: '3 hours' },
+      { name: 'Rohan Mehta', response: '10 min', resolution: '4 hours' }
+    ];
+    const sampleUsers = [
+      { name: 'Asha Shah', role: 'Agent' },
+      { name: 'Rohan Mehta', role: 'Agent' },
+      { name: 'Neha Singh', role: 'Manager' }
+    ];
+    let showUserForm = false;
+
+    function settings() {
+      const manager = state.role === 'manager';
+      if (!manager) return shell('SLA rules', 'Response and resolution promises are applied within ' + esc(state.tenant) + '.', '<span class="pill">View only</span>') + `<div class="grid"><section class="panel"><div class="panel-head"><h3>SLA rules by priority</h3><span class="muted">Managed by your workspace manager</span></div><div class="rule-list">${slaRules.map(rule => `<div class="rule"><strong><span class="badge ${cls(rule.priority)}">${rule.priority}</span></strong><span><small>First response</small><b>${rule.response}</b></span><span><small>Resolution</small><b>${rule.resolution}</b></span></div>`).join('')}</div></section><section class="panel"><h3>How SLA works</h3><p class="muted">The timer begins when a ticket arrives. Paused states and working hours are applied automatically. Your role can review performance but cannot change the company’s promise.</p><div class="mini-list"><div class="mini-row"><span>Business hours</span><b>09:00–18:00</b></div><div class="mini-row"><span>Timezone</span><b>IST (UTC+5:30)</b></div></div></section></div>`;
+      return shell('Tenant settings', 'Edit the SLA policy and maintain users for ' + esc(state.tenant) + '.', '<button class="button primary" id="save-settings">Save changes</button>') +
+        `<div class="grid"><section class="panel"><div class="panel-head"><div><h3>SLA rules by priority</h3><span class="muted">Response and resolution targets</span></div></div><div class="rule-list">${slaRules.map(rule => `<div class="rule"><strong><span class="badge ${cls(rule.priority)}">${rule.priority}</span></strong><label><small>First response</small><input class="rule-response" data-priority="${rule.priority}" value="${rule.response}" aria-label="${rule.priority} first response" /></label><label><small>Resolution</small><input class="rule-resolution" data-priority="${rule.priority}" value="${rule.resolution}" aria-label="${rule.priority} resolution" /></label></div>`).join('')}</div></section><section class="panel"><div class="panel-head"><div><h3>Agent-specific SLA</h3><span class="muted">Approved exceptions only</span></div></div><div class="rule-list">${agentRules.map(rule => `<div class="rule"><strong>${rule.name}<small>Custom coverage</small></strong><label><small>First response</small><input class="agent-response" data-agent="${rule.name}" value="${rule.response}" aria-label="${rule.name} first response" /></label><label><small>Resolution</small><input class="agent-resolution" data-agent="${rule.name}" value="${rule.resolution}" aria-label="${rule.name} resolution" /></label></div>`).join('')}</div></section></div>` +
+        `<section class="panel" style="margin-top:18px"><div class="panel-head"><div><h3>Workspace users</h3><span class="muted">${sampleUsers.length} active users</span></div><button class="button" id="add-user">+ Add sample user</button></div>${showUserForm ? `<div class="filters" style="margin-bottom:16px"><input id="new-user-name" class="filter" placeholder="Name" style="padding:10px;min-width:160px" /><select id="new-user-role" class="filter"><option>Agent</option><option>Manager</option></select><button class="button primary" id="confirm-user">Add user</button></div>` : ''}<div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Access</th></tr></thead><tbody>${sampleUsers.map(user => `<tr><td class="customer">${user.name}</td><td><span class="badge ${user.role === 'Manager' ? 'medium' : 'status-progress'}">${user.role}</span></td><td>Active</td></tr>`).join('')}</tbody></table></div></section>`;
+    }
+
+    function bind() {
+      document.querySelectorAll('[data-go]').forEach(button => button.onclick = () => { state.page = button.dataset.go; renderNav(); render(); });
+      document.querySelectorAll('[data-open]').forEach(button => button.onclick = () => openTicket(button.dataset.open));
+      document.querySelectorAll('[data-toast]').forEach(button => button.onclick = () => toast(button.dataset.toast));
+      const search = $('#search'), priority = $('#priority'), status = $('#status');
+      if (search) {
+        const filterTickets = () => {
+          const query = search.value.toLowerCase();
+          $('#ticketTable').innerHTML = ticketTable(tickets.filter(ticket => ticket.assignee === 'Asha Shah' && ticket.name.toLowerCase().includes(query) && (!priority.value || ticket.priority === priority.value) && (!status.value || ticket.status === status.value)));
+          bind();
+        };
+        search.oninput = filterTickets; priority.onchange = filterTickets; status.onchange = filterTickets;
+      }
+      const saveSettings = $('#save-settings');
+      if (saveSettings) saveSettings.onclick = () => {
+        slaRules.forEach(rule => {
+          rule.response = document.querySelector(`.rule-response[data-priority="${rule.priority}"]`).value.trim() || rule.response;
+          rule.resolution = document.querySelector(`.rule-resolution[data-priority="${rule.priority}"]`).value.trim() || rule.resolution;
+        });
+        agentRules.forEach(rule => {
+          rule.response = document.querySelector(`.agent-response[data-agent="${rule.name}"]`).value.trim() || rule.response;
+          rule.resolution = document.querySelector(`.agent-resolution[data-agent="${rule.name}"]`).value.trim() || rule.resolution;
+        });
+        toast('Tenant settings saved');
+        render();
+      };
+      const addUser = $('#add-user');
+      if (addUser) addUser.onclick = () => { showUserForm = !showUserForm; render(); };
+      const confirmUser = $('#confirm-user');
+      if (confirmUser) confirmUser.onclick = () => {
+        const name = $('#new-user-name').value.trim();
+        if (!name) { toast('Enter a user name first'); return; }
+        sampleUsers.push({ name, role: $('#new-user-role').value });
+        showUserForm = false;
+        toast(`${name} added to the workspace`);
+        render();
+      };
     }
   </script>
 </body>
