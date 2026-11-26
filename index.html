@@ -196,6 +196,45 @@
         render();
       };
     }
+
+    let activeHelpTopic = 'queue';
+    let supportFormOpen = false;
+    const helpTopics = {
+      queue: { icon: '◫', title: 'Working your queue', text: 'Search by customer name, narrow the list by priority or status, and open a ticket to add internal notes or update its current status.' },
+      sla: { icon: '◉', title: 'Understanding SLA', text: 'First-response and resolution timers follow the tenant policy. A ticket is breached only when its target has passed; the SLA views refresh from the current ticket status.' },
+      about: { icon: '✦', title: 'About DeskDesk', text: 'DeskDesk is a multi-tenant support workspace. Tickets, user access and SLA policies are scoped to each company, so data cannot cross tenant boundaries.' }
+    };
+
+    function help() {
+      const topic = helpTopics[activeHelpTopic];
+      return shell('Help & about', 'Guides, workspace context and support are all in one place.') +
+        `<div class="help-grid">${Object.entries(helpTopics).map(([key, item]) => `<article class="help-card ${activeHelpTopic === key ? 'help-selected' : ''}"><div class="help-ico">${item.icon}</div><h3>${item.title}</h3><p>${item.text}</p><button data-help-topic="${key}">${activeHelpTopic === key ? 'Reading now' : 'Open guide →'}</button></article>`).join('')}</div>` +
+        `<section class="panel" style="margin-top:18px"><div class="panel-head"><div><h3>${topic.icon} ${topic.title}</h3><span class="muted">DeskDesk guide</span></div></div><p class="muted" style="font-size:13px;max-width:700px">${topic.text}</p>${activeHelpTopic === 'about' ? '<div class="mini-list"><div class="mini-row"><span>Version</span><b>1.0.0</b></div><div class="mini-row"><span>Tenant protection</span><b>Enabled</b></div><div class="mini-row"><span>Workspace</span><b>' + esc(state.tenant) + '</b></div></div>' : ''}</section>` +
+        `<section class="panel" style="margin-top:18px"><div class="panel-head"><div><h3>Need a hand?</h3><span class="muted">Send a product or access question to support</span></div><button class="button primary" id="contact-support">${supportFormOpen ? 'Close request' : 'Contact support'}</button></div>${supportFormOpen ? `<div class="filters"><input id="support-subject" class="filter" placeholder="What do you need help with?" style="padding:10px;min-width:220px;flex:1" /><textarea id="support-message" class="filter" placeholder="Add some context so support can help quickly" style="padding:10px;min-width:220px;min-height:80px;flex:2"></textarea><button class="button primary" id="send-support">Send request</button></div>` : '<p class="muted">For workspace access, your manager can help. For product questions, create a support request and we will prepare the next step.</p>'}</section>`;
+    }
+
+    const bindWithSettings = bind;
+    bind = function () {
+      bindWithSettings();
+      document.querySelectorAll('[data-help-topic]').forEach(button => button.onclick = () => {
+        activeHelpTopic = button.dataset.helpTopic;
+        render();
+      });
+      const contactSupport = $('#contact-support');
+      if (contactSupport) contactSupport.onclick = () => { supportFormOpen = !supportFormOpen; render(); };
+      const sendSupport = $('#send-support');
+      if (sendSupport) sendSupport.onclick = () => {
+        const subject = $('#support-subject').value.trim();
+        const message = $('#support-message').value.trim();
+        if (!subject || !message) { toast('Add a subject and message first'); return; }
+        supportFormOpen = false;
+        toast('Support request prepared for your workspace');
+        render();
+      };
+    };
+    const helpStyle = document.createElement('style');
+    helpStyle.textContent = '.help-card.help-selected{border-color:var(--violet);background:#f8f6ff}.help-card.help-selected button{color:var(--mint)}';
+    document.head.appendChild(helpStyle);
   </script>
 </body>
 </html>
